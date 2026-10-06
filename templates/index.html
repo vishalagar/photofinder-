@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trip Face Finder</title>
+<style>
+:root{--bg:#fff;--fg:#1c1c1e;--mut:#6b6b70;--card:#f3f3f5;--acc:#2563eb}
+@media(prefers-color-scheme:dark){:root{--bg:#141416;--fg:#f2f2f4;--mut:#9a9aa2;--card:#222226;--acc:#6ea0ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:24px 16px}h1{margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 24px}
+h2{font-size:1.1rem;margin:28px 0 10px}
+.drop{display:block;border:2px dashed var(--mut);border-radius:12px;padding:28px;text-align:center;cursor:pointer;background:var(--card)}
+.drop:hover{border-color:var(--acc)}
+.people{display:flex;flex-wrap:wrap;gap:12px}
+.person{background:var(--card);border:0;border-radius:12px;padding:8px;cursor:pointer;color:var(--fg);text-align:center;width:104px}
+.person img{width:88px;height:88px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 4px}
+.person small{color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;background:var(--card)}
+#status{color:var(--mut);margin:16px 0 8px;min-height:1.4em}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+#lb img{max-width:96vw;max-height:88vh}#lb a{color:#fff}
+</style></head><body><main>
+<h1>Trip Face Finder</h1>
+<p class="sub">{{ n_photos }} photos · {{ n_faces }} faces detected</p>
+<label class="drop"><input id="file" type="file" accept="image/*" hidden>
+  <b>Find my photos</b><br><span style="color:var(--mut)">Upload a clear selfie of the person to find</span></label>
+{% if people %}<h2>Or pick someone from the group</h2>
+<div class="people">{% for p in people %}
+  <button class="person" data-pid="{{ p.id }}"><img src="/faces/{{ p.thumb }}.jpg" alt=""><small>{{ p.count }} photos</small></button>
+{% endfor %}</div>{% endif %}
+<div id="status"></div><div class="grid" id="grid"></div>
+</main>
+<div id="lb"><img id="lbimg" alt=""><a id="lbdl" download>Download original</a></div>
+<script>
+const $=s=>document.querySelector(s),st=$('#status'),grid=$('#grid');
+function show(photos,msg){st.textContent=photos.length?msg+' — '+photos.length+' photo(s)':'No matches found.';
+  grid.innerHTML='';photos.forEach(p=>{const i=new Image();i.loading='lazy';i.src='/thumb/'+encodeURI(p);
+  i.onclick=()=>{$('#lbimg').src='/photo/'+encodeURI(p);$('#lbdl').href='/photo/'+encodeURI(p);$('#lb').style.display='flex'};grid.append(i)})}
+$('#lb').onclick=e=>{if(e.target.id!=='lbdl')$('#lb').style.display='none'};
+$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;st.textContent='Searching…';
+  const fd=new FormData();fd.append('selfie',f);const r=await fetch('/api/search',{method:'POST',body:fd});const j=await r.json();
+  if(!r.ok){st.textContent=j.error;grid.innerHTML='';return}show(j.photos,'Best matches first')};
+document.querySelectorAll('.person').forEach(b=>b.onclick=async()=>{st.textContent='Loading…';
+  const j=await (await fetch('/api/person/'+b.dataset.pid)).json();show(j.photos,'Photos of this person');scrollTo({top:document.body.scrollHeight,behavior:'smooth'})});
+</script></body></html>
